@@ -1,0 +1,19 @@
+.{
+    .name = "StaticHttpFileServer",
+    .version = "0.0.0",
+    .minimum_zig_version = "0.11.0",
+
+    .dependencies = .{
+        .mime = .{
+            .url = "https://github.com/andrewrk/mime/archive/refs/tags/1.0.0.tar.gz",
+            .hash = "1220947d4e2b4a52de7365852f0e7110c71268cc3586329cb0c5c989904d72913983",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "root.zig",
+        "LICENSE",
+    },
+}
