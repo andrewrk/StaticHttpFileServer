@@ -5,9 +5,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const module = b.addModule("StaticHttpFileServer", .{
-        .source_file = .{ .path = "root.zig" },
+        .root_source_file = .{ .path = "root.zig" },
+        .target = target,
+        .optimize = optimize,
     });
-    module.addModule("mime", b.dependency("mime", .{
+    module.addImport("mime", b.dependency("mime", .{
         .target = target,
         .optimize = optimize,
     }).module("mime"));
@@ -17,7 +19,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    unit_tests.addModule("StaticHttpFileServer", module);
+    unit_tests.root_module.addImport("StaticHttpFileServer", module);
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
     const test_step = b.step("test", "Run unit tests");

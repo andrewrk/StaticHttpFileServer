@@ -16,18 +16,15 @@ I have a
 
 ## Status
 
-Blocked by https://github.com/ziglang/zig/issues/14719. After I shave that yak,
-I'll come back and finish this project.
+Depends on unmerged Zig changes: https://github.com/ziglang/zig/pull/18160
 
 ## Roadmap
 
-1. https://github.com/ziglang/zig/issues/14719
-2. Don't close the connection unnecessarily
-3. gzip compression
-4. Support more HTTP headers
+1. Don't close the connection unnecessarily
+2. gzip compression
+3. Support more HTTP headers
    * `ETag`
    * `If-None-Match`
    * `If-Modified-Since`
    * `Accept-Encoding`
    * `Content-Encoding`
-5. Instead of an Allocator, accept an ArrayList(u8).
