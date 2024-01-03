@@ -16,7 +16,37 @@ I have a
 
 ## Status
 
-Depends on unmerged Zig changes: https://github.com/ziglang/zig/pull/18160
+Basic features work, but see the roadmap below for planned enhancements.
+
+## Synopsis
+
+```zig
+const StaticHttpFileServer = @import("StaticHttpFileServer");
+
+var static_http_file_server = try StaticHttpFileServer.init(.{
+    .allocator = gpa,
+    .root_dir = tmp.dir,
+});
+defer static_http_file_server.deinit(gpa);
+
+var header_buffer: [1024]u8 = undefined;
+accept: while (true) {
+    var res = try http_server.accept(.{
+        .allocator = gpa,
+        .header_strategy = .{ .static = &header_buffer },
+    });
+    defer res.deinit();
+
+    while (res.reset() != .closing) {
+        res.wait() catch |err| switch (err) {
+            error.HttpHeadersInvalid => continue :accept,
+            error.EndOfStream => continue,
+            else => return err,
+        };
+        try static_http_file_server.serve(&res);
+    }
+}
+```
 
 ## Roadmap
 
