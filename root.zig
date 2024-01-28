@@ -1,14 +1,7 @@
 /// The key is index into backing_memory, where a HTTP request path is stored.
-files: FileTable,
+files: File.Table,
 /// Stores file names relative to root directory and file contents, interleaved.
 bytes: std.ArrayListUnmanaged(u8),
-
-pub const FileTable = std.HashMapUnmanaged(
-    File,
-    void,
-    FileNameContext,
-    std.hash_map.default_max_load_percentage,
-);
 
 pub const File = struct {
     mime_type: mime.Type,
@@ -17,6 +10,13 @@ pub const File = struct {
     /// Stored separately to make aliases work.
     contents_start: usize,
     contents_len: usize,
+
+    pub const Table = std.HashMapUnmanaged(
+        File,
+        void,
+        FileNameContext,
+        std.hash_map.default_max_load_percentage,
+    );
 };
 
 pub const Options = struct {
@@ -47,7 +47,7 @@ pub fn init(options: Options) InitError!Server {
     var it = try options.root_dir.walk(gpa);
     defer it.deinit();
 
-    var files: FileTable = .{};
+    var files: File.Table = .{};
     errdefer files.deinit(gpa);
 
     var bytes: std.ArrayListUnmanaged(u8) = .{};
