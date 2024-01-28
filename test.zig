@@ -4,7 +4,7 @@ const StaticHttpFileServer = @import("StaticHttpFileServer");
 test "basic usage" {
     const gpa = std.testing.allocator;
 
-    var http_server = std.http.Server.init(gpa, .{
+    var http_server = std.http.Server.init(.{
         .reuse_address = true,
     });
     const address = try std.net.Address.parseIp("127.0.0.1", 0);
