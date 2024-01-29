@@ -48,6 +48,8 @@ accept: while (true) {
 }
 ```
 
+See also `serve.zig` for a standalone example.
+
 ## Roadmap
 
 1. Don't close the connection unnecessarily
@@ -58,3 +60,20 @@ accept: while (true) {
    * `If-Modified-Since`
    * `Accept-Encoding`
    * `Content-Encoding`
+
+## Testing
+
+Standard unit tests:
+
+```
+zig build test
+```
+
+There is also this:
+
+```
+zig build serve -- [path]
+```
+
+Starts listening on localhost and serves static files at [path] so you can poke
+around manually.

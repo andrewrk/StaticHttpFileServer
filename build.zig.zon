@@ -11,9 +11,10 @@
     },
 
     .paths = .{
+        "LICENSE",
         "build.zig",
         "build.zig.zon",
         "root.zig",
-        "LICENSE",
+        "serve.zig",
     },
 }
