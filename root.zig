@@ -25,8 +25,12 @@ pub const Options = struct {
     root_dir: fs.Dir,
     cache_control_header: []const u8 = "max-age=0, must-revalidate",
     max_file_size: usize = std.math.maxInt(usize),
+    /// Special alias "404" allows setting a particular file as the file sent
+    /// for "not found" errors. If this alias is not provided, `serve` returns
+    /// `error.FileNotFound` instead, leaving the response's state unmodified.
     aliases: []const Alias = &.{
         .{ .request_path = "/", .file_path = "/index.html" },
+        .{ .request_path = "404", .file_path = "/404.html" },
     },
     ignoreFile: *const fn (path: []const u8) bool = &defaultIgnoreFile,
 
@@ -168,9 +172,15 @@ pub const ServeError = error{
 
 pub fn serve(s: *Server, res: *std.http.Server.Response) ServeError!void {
     const path = res.request.target;
-    const file = s.files.getKeyAdapted(path, FileNameAdapter{
-        .bytes = s.bytes.items,
-    }) orelse return error.FileNotFound;
+    const file_name_adapter: FileNameAdapter = .{ .bytes = s.bytes.items };
+    const file = s.files.getKeyAdapted(path, file_name_adapter) orelse f: {
+        if (s.files.getKeyAdapted(@as([]const u8, "404"), file_name_adapter)) |file| {
+            res.status = .not_found;
+            break :f file;
+        } else {
+            return error.FileNotFound;
+        }
+    };
 
     res.transfer_encoding = .{ .content_length = file.contents_len };
     try res.headers.append("content-type", @tagName(file.mime_type));
