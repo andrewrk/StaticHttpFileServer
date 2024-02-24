@@ -20,6 +20,8 @@ Basic features work, but see the roadmap below for planned enhancements.
 
 ## Synopsis
 
+Initialize:
+
 ```zig
 const StaticHttpFileServer = @import("StaticHttpFileServer");
 
@@ -28,33 +30,20 @@ var static_http_file_server = try StaticHttpFileServer.init(.{
     .root_dir = tmp.dir,
 });
 defer static_http_file_server.deinit(gpa);
+```
 
-var header_buffer: [1024]u8 = undefined;
-accept: while (true) {
-    var res = try http_server.accept(.{
-        .allocator = gpa,
-        .header_strategy = .{ .static = &header_buffer },
-    });
-    defer res.deinit();
+Then hand off a request to be serviced:
 
-    while (res.reset() != .closing) {
-        res.wait() catch |err| switch (err) {
-            error.HttpHeadersInvalid => continue :accept,
-            error.EndOfStream => continue,
-            else => return err,
-        };
-        try static_http_file_server.serve(&res);
-    }
-}
+```zig
+try static_http_file_server.serve(&http_request);
 ```
 
 See also `serve.zig` for a standalone example.
 
 ## Roadmap
 
-1. Don't close the connection unnecessarily
-2. gzip compression
-3. Support more HTTP headers
+1. gzip compression
+2. Support more HTTP headers
    * `ETag`
    * `If-None-Match`
    * `If-Modified-Since`

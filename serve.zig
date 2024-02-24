@@ -48,29 +48,25 @@ pub fn main() !void {
     });
     defer static_http_file_server.deinit(gpa);
 
-    var http_server = std.http.Server.init(.{
+    const address = try std.net.Address.parseIp("127.0.0.1", listen_port);
+    var http_server = try address.listen(.{
         .reuse_address = true,
     });
-    const address = try std.net.Address.parseIp("127.0.0.1", listen_port);
-    try http_server.listen(address);
-    const port = http_server.socket.listen_address.in.getPort();
+    const port = http_server.listen_address.in.getPort();
     std.debug.print("Listening at http://127.0.0.1:{d}/\n", .{port});
 
-    var header_buffer: [1024]u8 = undefined;
+    var read_buffer: [8000]u8 = undefined;
     accept: while (true) {
-        var res = try http_server.accept(.{
-            .allocator = gpa,
-            .header_strategy = .{ .static = &header_buffer },
-        });
-        defer res.deinit();
+        const connection = try http_server.accept();
+        defer connection.stream.close();
 
-        while (res.reset() != .closing) {
-            res.wait() catch |err| switch (err) {
-                error.HttpHeadersInvalid => continue :accept,
-                error.EndOfStream => continue,
-                else => return err,
+        var server = std.http.Server.init(connection, &read_buffer);
+        while (server.state == .ready) {
+            var request = server.receiveHead() catch |err| {
+                std.debug.print("error: {s}\n", .{@errorName(err)});
+                continue :accept;
             };
-            try static_http_file_server.serve(&res);
+            try static_http_file_server.serve(&request);
         }
     }
 }

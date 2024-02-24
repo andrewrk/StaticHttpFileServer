@@ -165,45 +165,31 @@ pub fn deinit(s: *Server, allocator: std.mem.Allocator) void {
     s.* = undefined;
 }
 
-pub const ServeError = error{
-    FileNotFound,
-    OutOfMemory,
-} || std.http.Server.Connection.WriteError;
+pub const ServeError = error{FileNotFound} || std.http.Server.Response.WriteError;
 
-pub fn serve(s: *Server, res: *std.http.Server.Response) ServeError!void {
-    const path = res.request.target;
+pub fn serve(s: *Server, request: *std.http.Server.Request) ServeError!void {
+    const path = request.head.target;
     const file_name_adapter: FileNameAdapter = .{ .bytes = s.bytes.items };
-    const file = s.files.getKeyAdapted(path, file_name_adapter) orelse f: {
-        if (s.files.getKeyAdapted(@as([]const u8, "404"), file_name_adapter)) |file| {
-            res.status = .not_found;
-            break :f file;
-        } else {
-            return error.FileNotFound;
-        }
+    const file, const status: std.http.Status = b: {
+        break :b .{
+            s.files.getKeyAdapted(path, file_name_adapter) orelse {
+                break :b .{
+                    s.files.getKeyAdapted(@as([]const u8, "404"), file_name_adapter) orelse
+                        return error.FileNotFound,
+                    .not_found,
+                };
+            },
+            .ok,
+        };
     };
+    const content = s.bytes.items[file.contents_start..][0..file.contents_len];
 
-    res.transfer_encoding = .{ .content_length = file.contents_len };
-    try res.headers.append("content-type", @tagName(file.mime_type));
-    try res.headers.append("connection", "close");
-    res.send() catch |err| switch (err) {
-        error.InvalidContentLength => unreachable,
-        error.UnsupportedTransferEncoding => unreachable,
-        else => |e| return e,
-    };
-
-    const contents = s.bytes.items[file.contents_start..][0..file.contents_len];
-
-    res.writeAll(contents) catch |err| switch (err) {
-        error.NotWriteable => unreachable,
-        error.MessageTooLong => unreachable,
-        else => |e| return e,
-    };
-    res.finish() catch |err| switch (err) {
-        error.NotWriteable => unreachable,
-        error.MessageTooLong => unreachable,
-        error.MessageNotCompleted => unreachable,
-        else => |e| return e,
-    };
+    return request.respond(content, .{
+        .status = status,
+        .extra_headers = &.{
+            .{ .name = "content-type", .value = @tagName(file.mime_type) },
+        },
+    });
 }
 
 pub fn defaultIgnoreFile(path: []const u8) bool {
