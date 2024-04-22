@@ -1,12 +1,12 @@
 .{
     .name = "StaticHttpFileServer",
     .version = "0.0.0",
-    .minimum_zig_version = "0.12.0-dev.2918+cfce81f7d",
+    .minimum_zig_version = "0.13.0-dev.33+8af59d1f9",
 
     .dependencies = .{
         .mime = .{
-            .url = "https://github.com/andrewrk/mime/archive/ef4381c6a739ca9d44fb7aa6b14c66e1fba2e16d.tar.gz",
-            .hash = "12204cfebcccb9fb8a5c7b4a6ec663aea691d180f7d346d36f213b4e154a6be1f823",
+            .url = "https://github.com/andrewrk/mime/archive/refs/tags/2.0.0.tar.gz",
+            .hash = "12208b3c98b4dcc88608e65889abc853f625a06edbb835da90d902bed1ade4da0ac8",
         },
     },
 

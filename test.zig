@@ -21,15 +21,15 @@ test "basic usage" {
         var headers_buffer: [1024]u8 = undefined;
         var req = try client.open(.GET, .{
             .scheme = "http",
-            .host = "127.0.0.1",
+            .host = .{ .percent_encoded = "127.0.0.1" },
             .port = port,
-            .path = "/",
+            .path = .{ .percent_encoded = "/" },
         }, .{
             .server_header_buffer = &headers_buffer,
         });
         defer req.deinit();
 
-        try req.send(.{});
+        try req.send();
         try req.wait();
 
         var buf: [4000]u8 = undefined;
