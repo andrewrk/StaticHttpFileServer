@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const module = b.addModule("StaticHttpFileServer", .{
-        .root_source_file = .{ .path = "root.zig" },
+        .root_source_file = b.path("root.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) void {
     }).module("mime"));
 
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "test.zig" },
+        .root_source_file = b.path("test.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
 
     const serve_exe = b.addExecutable(.{
         .name = "serve",
-        .root_source_file = .{ .path = "serve.zig" },
+        .root_source_file = b.path("serve.zig"),
         .target = target,
         .optimize = optimize,
     });

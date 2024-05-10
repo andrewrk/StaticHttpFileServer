@@ -5,8 +5,8 @@
 
     .dependencies = .{
         .mime = .{
-            .url = "https://github.com/andrewrk/mime/archive/refs/tags/2.0.0.tar.gz",
-            .hash = "12208b3c98b4dcc88608e65889abc853f625a06edbb835da90d902bed1ade4da0ac8",
+            .url = "https://github.com/andrewrk/mime/archive/refs/tags/2.0.1.tar.gz",
+            .hash = "12209083b0c43d0f68a26a48a7b26ad9f93b22c9cff710c78ddfebb47b89cfb9c7a4",
         },
     },
 
