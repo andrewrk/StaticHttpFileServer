@@ -1,3 +1,16 @@
+const Server = @This();
+
+const std = @import("std");
+const Io = std.Io;
+const Dir = std.Io.Dir;
+const assert = std.debug.assert;
+const Allocator = std.mem.Allocator;
+const log = std.log.scoped(.@"static-http-files");
+
+const mime = @import("mime");
+
+const canonical_sep = Dir.path.sep_posix;
+
 /// The key is index into backing_memory, where a HTTP request path is stored.
 files: File.Table,
 /// Stores file names relative to root directory and file contents, interleaved.
@@ -20,9 +33,8 @@ pub const File = struct {
 };
 
 pub const Options = struct {
-    allocator: std.mem.Allocator,
     /// Must have been opened with iteration permissions.
-    root_dir: fs.Dir,
+    root_dir: Dir,
     cache_control_header: []const u8 = "max-age=0, must-revalidate",
     max_file_size: usize = std.math.maxInt(usize),
     /// Special alias "404" allows setting a particular file as the file sent
@@ -45,9 +57,7 @@ pub const InitError = error{
     InitFailed,
 };
 
-pub fn init(options: Options) InitError!Server {
-    const gpa = options.allocator;
-
+pub fn init(gpa: Allocator, io: Io, options: Options) InitError!Server {
     var it = try options.root_dir.walk(gpa);
     defer it.deinit();
 
@@ -57,22 +67,22 @@ pub fn init(options: Options) InitError!Server {
     var bytes: std.ArrayListUnmanaged(u8) = .{};
     errdefer bytes.deinit(gpa);
 
-    while (it.next() catch |err| {
-        log.err("unable to scan root directory: {s}", .{@errorName(err)});
+    while (it.next(io) catch |err| {
+        log.err("unable to scan root directory: {t}", .{err});
         return error.InitFailed;
     }) |entry| {
         switch (entry.kind) {
             .file => {
                 if (options.ignoreFile(entry.path)) continue;
 
-                var file = options.root_dir.openFile(entry.path, .{}) catch |err| {
-                    log.err("unable to open '{s}': {s}", .{ entry.path, @errorName(err) });
+                var file = options.root_dir.openFile(io, entry.path, .{}) catch |err| {
+                    log.err("unable to open '{s}': {t}", .{ entry.path, err });
                     return error.InitFailed;
                 };
-                defer file.close();
+                defer file.close(io);
 
-                const size = file.getEndPos() catch |err| {
-                    log.err("unable to stat '{s}': {s}", .{ entry.path, @errorName(err) });
+                const size = file.length(io) catch |err| {
+                    log.err("unable to stat '{s}': {t}", .{ entry.path, err });
                     return error.InitFailed;
                 };
 
@@ -90,12 +100,12 @@ pub fn init(options: Options) InitError!Server {
                 const name_start = bytes.items.len;
                 bytes.appendAssumeCapacity(canonical_sep);
                 bytes.appendSliceAssumeCapacity(entry.path);
-                if (fs.path.sep != canonical_sep)
+                if (Dir.path.sep != canonical_sep)
                     normalizePath(bytes.items[name_start..][0..name_len]);
 
                 const contents_start = bytes.items.len;
-                const contents_len = file.readAll(bytes.unusedCapacitySlice()) catch |e| {
-                    log.err("unable to read '{s}': {s}", .{ entry.path, @errorName(e) });
+                const contents_len = file.readPositionalAll(io, bytes.unusedCapacitySlice(), 0) catch |e| {
+                    log.err("unable to read '{s}': {t}", .{ entry.path, e });
                     return error.InitFailed;
                 };
                 if (contents_len != size) {
@@ -104,7 +114,7 @@ pub fn init(options: Options) InitError!Server {
                 }
                 bytes.items.len += contents_len;
 
-                const ext = fs.path.extension(entry.basename);
+                const ext = Dir.path.extension(entry.basename);
 
                 try files.putNoClobberContext(gpa, .{
                     .mime_type = mime.extension_map.get(ext) orelse .@"application/octet-stream",
@@ -159,13 +169,13 @@ pub fn init(options: Options) InitError!Server {
     };
 }
 
-pub fn deinit(s: *Server, allocator: std.mem.Allocator) void {
+pub fn deinit(s: *Server, allocator: Allocator) void {
     s.files.deinit(allocator);
     s.bytes.deinit(allocator);
     s.* = undefined;
 }
 
-pub const ServeError = error{FileNotFound} || std.http.Server.Response.WriteError;
+pub const ServeError = error{ FileNotFound, HttpExpectationFailed, WriteFailed };
 
 pub fn serve(s: *Server, request: *std.http.Server.Request) ServeError!void {
     const path = request.head.target;
@@ -193,23 +203,14 @@ pub fn serve(s: *Server, request: *std.http.Server.Request) ServeError!void {
 }
 
 pub fn defaultIgnoreFile(path: []const u8) bool {
-    const basename = fs.path.basename(path);
+    const basename = Dir.path.basename(path);
     return std.mem.startsWith(u8, basename, ".") or
         std.mem.endsWith(u8, basename, "~");
 }
 
-const Server = @This();
-const mime = @import("mime");
-const std = @import("std");
-const fs = std.fs;
-const assert = std.debug.assert;
-const log = std.log.scoped(.@"static-http-files");
-
-const canonical_sep = fs.path.sep_posix;
-
 fn normalizePath(bytes: []u8) void {
-    assert(fs.path.sep != canonical_sep);
-    std.mem.replaceScalar(u8, bytes, fs.path.sep, canonical_sep);
+    assert(Dir.path.sep != canonical_sep);
+    std.mem.replaceScalar(u8, bytes, Dir.path.sep, canonical_sep);
 }
 
 const FileNameContext = struct {

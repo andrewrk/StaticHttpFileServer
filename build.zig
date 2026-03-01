@@ -15,9 +15,11 @@ pub fn build(b: *std.Build) void {
     }).module("mime"));
 
     const unit_tests = b.addTest(.{
-        .root_source_file = b.path("test.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     unit_tests.root_module.addImport("StaticHttpFileServer", module);
     const run_unit_tests = b.addRunArtifact(unit_tests);
@@ -27,9 +29,11 @@ pub fn build(b: *std.Build) void {
 
     const serve_exe = b.addExecutable(.{
         .name = "serve",
-        .root_source_file = b.path("serve.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("serve.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     serve_exe.root_module.addImport("StaticHttpFileServer", module);
     const run_serve_exe = b.addRunArtifact(serve_exe);
