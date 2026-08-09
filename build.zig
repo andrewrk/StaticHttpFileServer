@@ -37,7 +37,7 @@ pub fn build(b: *std.Build) void {
     });
     serve_exe.root_module.addImport("StaticHttpFileServer", module);
     const run_serve_exe = b.addRunArtifact(serve_exe);
-    if (b.args) |args| run_serve_exe.addArgs(args);
+    run_serve_exe.addPassthruArgs();
 
     const serve_step = b.step("serve", "Serve a directory of files");
     serve_step.dependOn(&run_serve_exe.step);

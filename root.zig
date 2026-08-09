@@ -14,7 +14,7 @@ const canonical_sep = Dir.path.sep_posix;
 /// The key is index into backing_memory, where a HTTP request path is stored.
 files: File.Table,
 /// Stores file names relative to root directory and file contents, interleaved.
-bytes: std.ArrayListUnmanaged(u8),
+bytes: std.ArrayList(u8),
 
 pub const File = struct {
     mime_type: mime.Type,
@@ -64,7 +64,7 @@ pub fn init(gpa: Allocator, io: Io, options: Options) InitError!Server {
     var files: File.Table = .{};
     errdefer files.deinit(gpa);
 
-    var bytes: std.ArrayListUnmanaged(u8) = .{};
+    var bytes: std.ArrayList(u8) = .empty;
     errdefer bytes.deinit(gpa);
 
     while (it.next(io) catch |err| {

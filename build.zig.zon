@@ -1,8 +1,8 @@
 .{
     .name = .StaticHttpFileServer,
-    .version = "0.2.0",
+    .version = "1.0.0",
     .fingerprint = 0x4cd6ba0ec120ed8f,
-    .minimum_zig_version = "0.16.0-dev.2687+41594c190",
+    .minimum_zig_version = "0.17.0-dev.1673+5f2729a1a",
 
     .dependencies = .{
         .mime = .{
