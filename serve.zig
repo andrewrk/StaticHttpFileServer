@@ -1,6 +1,8 @@
 const std = @import("std");
 const StaticHttpFileServer = @import("StaticHttpFileServer");
 
+const EPOLL = std.os.linux.EPOLL;
+
 var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
 
 pub fn main() !void {
@@ -48,6 +50,9 @@ pub fn main() !void {
     });
     defer static_http_file_server.deinit(gpa);
 
+    const epoll = std.posix.epoll_create1(0) catch |err|
+        fatal("unable to create an epoll: {s}", .{@errorName(err)});
+
     const address = try std.net.Address.parseIp("127.0.0.1", listen_port);
     var http_server = try address.listen(.{
         .reuse_address = true,
@@ -55,18 +60,61 @@ pub fn main() !void {
     const port = http_server.listen_address.in.getPort();
     std.debug.print("Listening at http://127.0.0.1:{d}/\n", .{port});
 
-    var read_buffer: [8000]u8 = undefined;
-    accept: while (true) {
-        const connection = try http_server.accept();
-        defer connection.stream.close();
+    var events: [10]std.os.linux.epoll_event = undefined;
+    {
+        var ctl_ev = std.os.linux.epoll_event{
+            .events = EPOLL.IN,
+            .data = .{ .fd = http_server.stream.handle },
+        };
+        std.posix.epoll_ctl(epoll, EPOLL.CTL_ADD, http_server.stream.handle, &ctl_ev) catch |err|
+            fatal("unable to add listener to epoll: {s}", .{@errorName(err)});
+    }
 
-        var server = std.http.Server.init(connection, &read_buffer);
-        while (server.state == .ready) {
-            var request = server.receiveHead() catch |err| {
-                std.debug.print("error: {s}\n", .{@errorName(err)});
-                continue :accept;
-            };
-            try static_http_file_server.serve(&request);
+    var read_buffer: [8000]u8 = undefined;
+    var conns = std.AutoArrayHashMap(std.posix.fd_t, std.http.Server).init(gpa);
+    defer conns.deinit();
+    while (true) {
+        const nfds = std.posix.epoll_wait(epoll, &events, -1);
+        events: for (0..nfds) |i| {
+            const ev = events[i];
+            if (ev.data.fd == http_server.stream.handle) {
+                const conn = try http_server.accept();
+                var ctl_ev = std.os.linux.epoll_event{
+                    .events = EPOLL.IN,
+                    .data = .{ .fd = conn.stream.handle },
+                };
+                std.posix.epoll_ctl(epoll, EPOLL.CTL_ADD, conn.stream.handle, &ctl_ev) catch |err| {
+                    std.debug.print(
+                        "could not epoll peer '{}': {s}\n",
+                        .{ conn.address, @errorName(err) },
+                    );
+                    continue :events;
+                };
+                try conns.put(conn.stream.handle, .init(conn, &read_buffer));
+            } else {
+                const server = conns.getPtr(ev.data.fd).?;
+                defer {
+                    std.posix.epoll_ctl(epoll, EPOLL.CTL_DEL, server.connection.stream.handle, null) catch |err| {
+                        std.debug.print(
+                            "could not remove peer '{}' from epoll: {s}\n",
+                            .{ server.connection.address, @errorName(err) },
+                        );
+                    };
+                    server.connection.stream.close();
+                    _ = conns.swapRemove(ev.data.fd);
+                }
+
+                if (server.state == .ready) {
+                    var request = server.receiveHead() catch |err| {
+                        std.debug.print(
+                            "recv error with peer {}: {s}\n",
+                            .{ server.connection.address, @errorName(err) },
+                        );
+                        continue :events;
+                    };
+                    try static_http_file_server.serve(&request);
+                }
+            }
         }
     }
 }
